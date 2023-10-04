@@ -1,0 +1,270 @@
+version: '3.7'
+
+services:
+
+#PROXY
+  nginx-proxy-manager-app:
+    image: 'jc21/nginx-proxy-manager:latest'
+    container_name: npm-app
+    depends_on:
+      - nginx-proxy-manager-db
+      - nextcloud
+      - grafana
+      - portainer
+      - wordpress
+      - cadvisor
+    ports:
+      - 80:80
+      - 443:443
+    environment:
+      MARIADB_ROOT_HOST: npm-db
+      DB_MYSQL_PORT: 3306
+      DB_MYSQL_USER: ${DB_NPM_USER}
+      DB_MYSQL_PASSWORD: ${DB_NPM_USER_PASS}
+      DB_MYSQL_NAME: ${DB_NPM_NAME}
+      REAL_IP_HEADER: "X-Real-IP"
+      TRUSTED_PROXIES: "10.0.0.0/8, 100.64.0.0/10, 172.16.0.0/12, 192.168.0.0/16"
+    volumes:
+      - ./NPM:/data
+      - ./NPM/letsencrypt:/etc/letsencrypt
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+    networks:
+      - front_end
+      - NPM_network
+
+#APPS
+  nextcloud:
+    image: 'nextcloud'
+    container_name: nextcloud
+    depends_on:
+      - db-nextcloud
+      - redis
+    volumes:
+      - ./app/config:/var/www/html/config
+      - ./nextcloud:/var/www/html
+      - ./app/custom_apps:/var/www/html/custom_apps
+      - ./app/data:/var/www/html/data
+      - ./app/themes:/var/www/html/themes
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      PUID: 1000
+      PGID: 1000
+      TZ: Europe/Moscow
+      PHP_MEMORY_LIMIT: 1G
+      PHP_UPLOAD_LIMIT: 10G
+      REDIS_HOST: redis
+    restart: unless-stopped
+    networks:
+      - front_end
+      - nextcloud_network
+
+  grafana:
+    image: 'grafana/grafana'
+    container_name: grafana
+    depends_on:
+      - prometheus
+    user: root
+    volumes:
+      - ./grafana:/var/lib/grafana
+      - ./grafana/provisioning/:/etc/grafana/provisioning/
+      - ./grafana/config/:/etc/grafana/config/
+    environment:
+      TZ: Europe/Moscow
+    restart: unless-stopped
+    networks:
+      - front_end
+
+  portainer:
+    image: 'portainer/portainer-ce:latest'
+    container_name: portainer
+    volumes:
+      - ./portainer:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /etc/localtime:/etc/localtime:ro
+    restart: unless-stopped
+    networks:
+      - front_end
+
+  wordpress:
+    image: 'wordpress'
+    container_name: wordpress
+    depends_on:
+      - wordpress_db
+    links:
+      - wordpress_db:mysql
+    environment:
+      MYSQL_DATABASE: ${DB_WP_NAME}
+      DB_MYSQL_PORT: 3306
+      WORDPRESS_DB_USER: ${DB_WP_USER}
+      WORDPRESS_DB_PASSWORD: ${DB_WP_USER_PASS}
+    volumes:
+      - ./WordPress/html:/var/www/html
+    restart: unless-stopped
+    networks:
+      - front_end
+      - WP_network
+
+#CAСHE
+  redis:
+     image: 'redis:alpine'
+     container_name: redis
+     restart: unless-stopped
+     networks:
+      - WP_network
+      - nextcloud_network
+
+#DATA_BASES
+  nginx-proxy-manager-db:
+    image: 'mariadb'
+    container_name: npm-db
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_NPM_ROOT_PASS}
+      MYSQL_DATABASE: ${DB_NPM_NAME}
+      DB_MYSQL_PORT: 3306
+      MYSQL_USER: ${DB_NPM_USER}
+      MYSQL_PASSWORD: ${DB_NPM_USER_PASS}
+    volumes:
+      - ./NPM/NPM-db:/var/lib/mysql
+    restart: unless-stopped
+    networks:
+      - NPM_network
+
+  db-nextcloud:
+    image: 'mariadb'
+    container_name: nextcloud-db
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_NC_ROOT_PASS}
+      MYSQL_DATABASE: ${DB_NC_NAME}
+      DB_MYSQL_PORT: 3306
+      MYSQL_USER: ${DB_NC_USER}
+      MYSQL_PASSWORD: ${DB_NC_USER_PASS}
+    volumes:
+      - ./db-nextcloud:/var/lib/mysql
+      - /etc/localtime:/etc/localtime:ro
+    restart: unless-stopped
+    networks:
+      - nextcloud_network
+
+  wordpress_db:
+    image: 'mariadb'
+    container_name: wordpress_db
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_WP_ROOT_PASS}
+      MYSQL_DATABASE: ${DB_WP_NAME}
+      DB_MYSQL_PORT: 3306
+      MYSQL_USER: ${DB_WP_USER}
+      MYSQL_PASSWORD: ${DB_WP_USER_PASS}
+    volumes:
+      - ./WordPress/WordPress_db:/var/lib/mysql
+    restart: unless-stopped
+    networks:
+      - WP_network
+
+  prometheus:
+    image: 'prom/prometheus:latest'
+    container_name: prometheus
+    depends_on:
+      - nextcloud-exporter
+      - node-exporter
+      - cadvisor
+    user: root
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./prometheus:/prometheus:rw
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --enable-feature=new-service-discovery-manager
+    environment:
+      TZ: Europe/Moscow
+    restart: unless-stopped
+    networks:
+      - front_end
+      - exporters_network
+
+#EXPORTERS
+  nextcloud-exporter:
+    image: 'xperimental/nextcloud-exporter:latest'
+    container_name: nextcloud-exporter
+    environment:
+      - NEXTCLOUD_SERVER=${NC_URL}
+      - NEXTCLOUD_AUTH_TOKEN=${NC_AUTH_TOKEN}
+    restart: unless-stopped
+    networks:
+      - nextcloud_network
+      - exporters_network
+
+  node-exporter:
+    image: 'prom/node-exporter'
+    container_name: exporter
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --collector.filesystem.ignored-mount-points
+      - ^/(sys|proc|dev|host|etc|rootfs/var/lib/docker/containers|rootfs/var/lib/docker/overlay2|rootfs/run/docker/netns|rootfs/var/lib/docker/aufs)($$|/)
+    environment:
+      TZ: Europe/Moscow
+    restart: unless-stopped
+    networks:
+      - exporters_network
+
+  cadvisor:
+    image: 'gcr.io/cadvisor/cadvisor:latest'
+    container_name: cadvisor
+    expose:
+      - '8080'
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+    restart: unless-stopped
+    networks:
+      - exporters_network
+
+#NETWORKS
+networks:
+
+  front_end:
+    name: front_end
+    external: true
+
+  nextcloud_network:
+    name: nextcloud_network
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.16.0.0/24
+          ip_range: 172.16.0.0/24
+          gateway: 172.16.0.1
+
+  exporters_network:
+    name: exporters_network
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.16.1.0/24
+          ip_range: 172.16.1.0/24
+          gateway: 172.16.1.1
+
+  NPM_network:
+    name: NPM_network
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.16.2.0/24
+          ip_range: 172.16.2.0/24
+          gateway: 172.16.2.1
+
+  WP_network:
+    name: WP_network
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.16.3.0/24
+          ip_range: 172.16.3.0/24
+          gateway: 172.16.3.1
