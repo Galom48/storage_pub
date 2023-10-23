@@ -11,5 +11,10 @@
 - nextcloud-exporter
 - node-exporter
 - Cadvisor
+- Elasticsearch
+
+
+
+
 
   Удален файл .env
