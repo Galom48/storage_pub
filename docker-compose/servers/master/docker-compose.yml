@@ -13,6 +13,7 @@ services:
       - portainer
       - wordpress
       - cadvisor
+      - elasticsearch
     ports:
       - 80:80
       - 443:443
@@ -104,6 +105,36 @@ services:
     networks:
       - front_end
       - WP_network
+
+  elasticsearch:
+#    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.14
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.10.4
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - xpack.security.enabled=false
+      - 'ES_JAVA_OPTS=-Xms1g -Xmx2g'
+    user: '1000:1000'
+#    mem_limit: 1g
+    expose:
+      - '9200'
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - ./elasticsearch/data:/usr/share/elasticsearch/data
+      - ./elasticsearch/logs:/usr/share/elasticsearch/logs/
+    restart: unless-stopped
+    networks:
+      - nextcloud_network
+      - front_end
+#docker exec --user www-data nextcloud php occ fulltextsearch:index
+#docker exec --user www-data nextcloud php occ fulltextsearch:live
+#docker cp /home/Galom/master/ingest-attachment-7.17.14.zip elasticsearch:/usr/share/elasticsearch/bin/
+#elasticsearch-plugin install file:/usr/share/elasticsearch/bin/ingest-attachment-7.17.14.zip
+#/usr/share/elasticsearch/bin/elasticsearch-plugin install --batch ingest-attachment
 
 #CAСHE
   redis:
