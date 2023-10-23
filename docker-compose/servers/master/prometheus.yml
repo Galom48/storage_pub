@@ -19,13 +19,13 @@ scrape_configs:
     scheme: https
     scrape_interval: 15s
     static_configs:
-      - targets: ['ne.galom.freemyip.com']
+      - targets: ['xxxx.freemyip.com']
 
   - job_name: 'nextcloud-Melbicom'
     scheme: https
     scrape_interval: 120s
     static_configs:
-      - targets: ['nenc.galom.freemyip.com']
+      - targets: ['xxxx.freemyip.com']
 
   - job_name: 'cadvisor-HSHP'
     scrape_interval: 10s
@@ -36,4 +36,4 @@ scrape_configs:
     scheme: https
     scrape_interval: 10s
     static_configs:
-      - targets: ['neca.galom.freemyip.com']
+      - targets: ['xxxx.freemyip.com']
