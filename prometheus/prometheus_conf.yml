@@ -1,0 +1,39 @@
+global:
+#  scrape_interval: 5s
+  scrape_timeout: 10s
+  evaluation_interval: 1m
+
+scrape_configs:
+
+  - job_name: 'SERVICE_NAME_LOCAL'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['CONTAINER_NAME:PORT']
+
+  - job_name: 'SERVICE_NAME_LOCALP'
+    scrape_interval: 120s
+    static_configs:
+      - targets: ['CONTAINER_NAME:PORT']
+
+  - job_name: 'SERVICE_NAME_REMOTE'
+    scheme: https
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['URL']
+
+  - job_name: 'SERVICE_NAME_REMOTE'
+    scheme: https
+    scrape_interval: 120s
+    static_configs:
+      - targets: ['URL']
+
+  - job_name: 'SERVICE_NAME_LOCAL'
+    scrape_interval: 10s
+    static_configs:
+      - targets: ['CONTAINER_NAME:PORT']
+
+  - job_name: 'SERVICE_NAME_REMOTE'
+    scheme: https
+    scrape_interval: 10s
+    static_configs:
+      - targets: ['URL']
