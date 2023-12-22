@@ -1,0 +1,74 @@
+default_redirection_url: https://au.EXAMPLE.com
+identity_validation.reset_password.jwt_secret: #SECRET
+theme: grey
+
+session:
+  name: authelia_redfox_session
+  domain: EXAMPLE.com
+  same_site: lax
+  secret:  #SECRET, This secret can also be set using the env variables AUTHELIA_SESSION_SECRET_FILE
+  expiration: 1h
+  inactivity: 5m
+  remember_me: 1M
+
+storage:
+  encryption_key: #SECRET
+  postgres:
+    address: tcp://postgres_db:5432
+    database: authelia
+    schema: public
+    username: authelia
+    password: #SECRET
+
+authentication_backend:
+  password_reset.disable: false
+  file:
+    path: /config/users_database.yml
+    password:
+      algorithm: argon2id
+      #$ docker run -v ./authelia/config/configuration.yml:/configuration.yml -it authelia/authelia:v4.38.0-beta3 authelia crypto hash generate --config /configuration.yml
+      #Digest: $argon2id$v=19$m=65536,t=3,p=4$Hjc8e7WYcBFcJmEDUOsS9A$ozM7RyZR1EyDR8cuyVpDDfmLrGPGFgo5E2NNqRumui4
+      iterations: 1
+      memory: 1024
+      parallelism: 8
+      key_length: 32
+      salt_length: 16
+
+access_control:
+  default_policy: two_factor
+  rules:
+  - domain: 
+    - "*.EXAMPLE.com"
+    policy: two_factor
+
+notifier:
+  disable_startup_check: true
+  filesystem:
+    filename: /config/notification.txt
+
+server:
+  address: tcp4://0.0.0.0:9091
+
+log:
+  level: warn
+
+totp:
+#  disable: false
+  issuer: EXAMPLE.com
+#  algorithm: sha1
+#  digits: 6
+  period: 30
+#  skew: 1
+#  secret_size: 32
+
+#regulation:
+#  max_retries: 5
+#  find_time: 2m
+#  ban_time: 1m
+
+ntp:  
+  address: "194.190.168.1:123"  
+  version: 3  
+  max_desync: 3s  
+  disable_startup_check: false  
+  disable_failure: false
