@@ -1,7 +1,7 @@
 users:
   galom:
     displayname: "Galom"
-    password: "$argon2id$v=19$m=65536,t=3,p=4$NMxE7j2gPVgx1bRIQBoB4g$rWKp4tPooyn/W7sK8uChBb9DZbuyo0EpfO0etqRDvw0" # password
+    password: "##########" # password
     email: YOUR_EMAIL
     groups:
       - admins
